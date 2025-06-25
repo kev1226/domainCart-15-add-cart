@@ -1,5 +1,5 @@
-# Build stage
-FROM golang:1.23 as builder
+# Etapa 1: Compilar el binario
+FROM golang:1.23 AS builder
 
 WORKDIR /app
 
@@ -9,15 +9,17 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o add-cart .
+# Compilar el binario para Linux con enlaces estáticos
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o add-cart .
 
-# Final image
+# Etapa 2: Imagen final liviana
 FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
 COPY --from=builder /app/add-cart .
 
-EXPOSE 3035
-
+# Ejecutar el binario
 CMD ["./add-cart"]
