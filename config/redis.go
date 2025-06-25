@@ -11,7 +11,7 @@ var Ctx = context.Background()
 
 func InitRedis() *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     "54.160.106.5:6379",
 		Password: "CartService123!",
 		DB:       0,
 	})

@@ -10,7 +10,7 @@ import (
 
 func SendMessage(topic string, key string, message []byte) error {
 	writer := kafka.NewWriter(kafka.WriterConfig{
-		Brokers:  []string{"localhost:9092"},
+		Brokers:  []string{"3.232.44.31:9092"},
 		Topic:    topic,
 		Balancer: &kafka.Hash{}, // 🔑 clave usada para decidir la partición
 	})

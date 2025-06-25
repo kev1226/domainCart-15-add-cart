@@ -25,7 +25,7 @@ func WaitForProductResponse(requestID string) (*ProductResponse, error) {
 	log.Printf("🧭 Esperando respuesta para requestID=%s en partición %d", requestID, partition)
 
 	reader := kafkaLib.NewReader(kafkaLib.ReaderConfig{
-		Brokers:     []string{"localhost:9092"},
+		Brokers:     []string{"3.232.44.31:9092"},
 		Topic:       ProductResponseTopic,
 		Partition:   partition,
 		MinBytes:    1,
