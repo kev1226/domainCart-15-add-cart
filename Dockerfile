@@ -21,5 +21,8 @@ WORKDIR /root/
 
 COPY --from=builder /app/add-cart .
 
+# Documentar el puerto expuesto
+EXPOSE 3035
+
 # Ejecutar el binario
 CMD ["./add-cart"]
