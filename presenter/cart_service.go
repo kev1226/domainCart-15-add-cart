@@ -3,13 +3,12 @@ package presenter
 import (
 	"add-service/dto"
 	"add-service/entity"
-	"add-service/kafka"
+	"add-service/external"
 	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -21,34 +20,22 @@ func AddToCart(dto dto.AddToCartDTO, userID interface{}, redisClient *redis.Clie
 		return fmt.Errorf("ID de producto inválido")
 	}
 
-	// ✅ Generar un requestId único para esta solicitud
-	requestID := uuid.New().String()
-
-	req := kafka.ProductRequest{
-		RequestID: requestID,
-		ProductID: dto.ProductID,
-	}
-	data, _ := json.Marshal(req)
-	if err := kafka.SendMessage(kafka.ProductRequestTopic, requestID, data); err != nil {
-		return fmt.Errorf("error solicitando producto")
-	}
-
-	// Esperar respuesta filtrando por requestId
-	prodRes, err := kafka.WaitForProductResponse(requestID)
+	// Obtener el producto desde el microservicio externo
+	product, err := external.GetProductByID(dto.ProductID)
 	if err != nil {
-		return fmt.Errorf("producto no encontrado o tiempo agotado")
+		return err
 	}
 
-	// Verificar stock disponible
-	if dto.Quantity > prodRes.Stock {
-		return fmt.Errorf("stock insuficiente (%d disponibles)", prodRes.Stock)
+	// Validar stock
+	if dto.Quantity > product.Stock {
+		return fmt.Errorf("stock insuficiente (%d disponibles)", product.Stock)
 	}
 
-	// Crear item y guardarlo en Redis
+	// Crear y guardar en Redis
 	item := entity.CartItem{
-		ProductID: fmt.Sprintf("%d", prodRes.ID),
-		Name:      prodRes.Name,
-		Price:     prodRes.Price,
+		ProductID: fmt.Sprintf("%d", product.ID),
+		Name:      product.Name,
+		Price:     product.Price,
 		Quantity:  dto.Quantity,
 	}
 	itemJSON, _ := json.Marshal(item)
