@@ -1,0 +1,69 @@
+name: Build & Deploy add-cart to EC2
+
+on:
+  push:
+    branches:
+      - qa
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build, Push to DockerHub and Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set deployment variables
+        id: set-vars
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/qa" ]]; then
+            echo "env=QA" >> $GITHUB_OUTPUT
+            echo "tag=qa-latest" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+            echo "env=PROD" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t kalemat/15-add-cart:${{ steps.set-vars.outputs.tag }} .
+
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push kalemat/15-add-cart:${{ steps.set-vars.outputs.tag }}
+
+      - name: Connect and deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets[format('EC2_HOST_{0}', steps.set-vars.outputs.env)] }}
+          username: ${{ secrets[format('EC2_USER_{0}', steps.set-vars.outputs.env)] }}
+          key: ${{ secrets[format('EC2_KEY_{0}', steps.set-vars.outputs.env)] }}
+          port: 22
+          timeout: 30s
+          command_timeout: 10m
+          script: |
+            echo "🔁 Stopping previous container (if any)..."
+            docker stop 15-add-cart || true
+            docker rm 15-add-cart || true
+
+            echo "⬇️ Pulling new image from Docker Hub..."
+            docker pull kalemat/15-add-cart:${{ steps.set-vars.outputs.tag }}
+
+            echo "🚀 Starting new container on port 3035..."
+            docker run -d \
+              --name 15-add-cart \
+              --restart always \
+              -p 3035:3035 \
+              kalemat/15-add-cart:${{ steps.set-vars.outputs.tag }}
+
+            echo "✅ Deployment finished and will persist across EC2 reboots."
